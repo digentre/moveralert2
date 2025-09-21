@@ -1,0 +1,147 @@
+Build a prototype web app called “Recent Movers Manufacturing Alert” that automatically finds and emails daily alerts about UK companies that have recently moved into commercial premises, with a strong focus on manufacturing. Strictly use business data from the Emailmovers API for all company discovery and enrichment (company name, contact person, phone, email, address, SIC, headcount, group/brand ownership, move-in date, premises type, and an “energy meter present” flag if available). If a sandbox is needed, mock only the transport layer but keep the data model and endpoints aligned to the Emailmovers API.
+
+Core user story
+
+As a sales user, I want to receive daily email notifications containing fresh leads of companies that moved into commercial premises in the last 24 hours, filtered to specific premises and business types, so I can contact the right decision makers quickly.
+
+Filters & logic (apply server-side before any alert is sent)
+
+Time window / freshness
+
+Move-in date: last 1–3 days (default to last 24 hours for email alerts).
+
+Allow manual override for “last 7 days” when browsing in the UI.
+
+Premises / business types (INCLUDE)
+
+Hotels, guest houses, industrial units, garage services.
+
+Manufacturing services (highest priority).
+
+Construction only if premises record indicates an energy meter is present (treat as a boolean meter_present=true).
+
+Exclusions
+
+Exclude high street shops.
+
+Exclude chain establishments (use group/brand ownership from Emailmovers data; also exclude if location_count >= 5 or brand is in a known UK chains list returned by Emailmovers API).
+
+Geography
+
+UK-wide by default; add optional region filter (England/Scotland/Wales/Northern Ireland) and county filter.
+
+Company quality gates
+
+Must have: company name, at least one contact person (first/last name), direct email and/or switchboard, and a validated address.
+
+De-duplicate by company_id and address_postcode; suppress repeats for 30 days.
+
+Scoring & ordering
+
+Score leads and order the daily email by:
+
+Manufacturing (top),
+
+Industrial units & garage services,
+
+Hotels & guest houses,
+
+Construction with meter_present=true.
+
+Within each bucket, sort by most recent move-in date, then by company size (headcount) descending.
+
+Data source
+
+All B2B data must come from the Emailmovers API.
+
+Endpoints to call (use realistic placeholders that will be swapped to production):
+
+GET /recent-movers?from_date=YYYY-MM-DD&to_date=YYYY-MM-DD&country=UK&premises_type=...&sic_codes=...
+
+GET /company/{company_id} for enrichment (contacts, emails, phones, group ownership, meter flag).
+
+GET /chains/list (or equivalent) to identify chain brands.
+
+Include API key management (env var), rate limiting, retries with exponential backoff, and request/response logging (PII redacted in logs).
+
+Outputs
+
+Daily email alert (default send time 08:00 Europe/London) containing up to 50 leads/day (configurable), with CSV attachment and inline preview of the top 10.
+
+Fields: company name, move-in date, premises type, sector/SIC, headcount band, contact person (role), phone, email, full address, website, meter_present (Y/N), chain_flag (Y/N), data source = Emailmovers.
+
+Web dashboard
+
+Search and filter panel mirroring server-side filters.
+
+Lead list with badges (Manufacturing, Industrial, Garage, Hotel/Guest House, Construction+Meter).
+
+Detail drawer for each lead with full enrichment from Emailmovers.
+
+Export to CSV and copy-to-clipboard for selected rows.
+
+Suppression controls (hide a company for N days, mark as contacted, do-not-contact).
+
+Audit trail showing when the lead was first seen and when notifications were sent.
+
+Pricing model (configurable, not enforced)
+
+Add an Admin > Pricing page with editable tiers based on lead volume and freshness:
+
+Tier A: Daily feed (0–50/day)
+
+Tier B: Daily feed (51–150/day)
+
+Tier C: Near-real-time (hourly digest)
+
+Display the active tier and current month-to-date lead count in the dashboard header.
+
+Email delivery
+
+Use a transactional email provider (e.g., SendGrid/SES) with:
+
+DKIM/SPF ready config fields.
+
+Per-recipient unsubscribe link (dashboard flag do_not_email=true).
+
+Fallback to digest-only if no qualifying leads for the day.
+
+Provide a simple email template:
+
+Subject: Daily Movers: {{date}} — {{lead_count}} Manufacturing-Focused Opportunities
+
+Preheader: Fresh movers filtered to your criteria (manufacturing first).
+
+Body sections: Top 10 table, “View all” link to dashboard, CSV attached.
+
+Compliance & governance
+
+Respect GDPR/UK privacy rules; only use business contact data from Emailmovers.
+
+Store minimal PII, encrypt at rest, and provide a global opt-out list.
+
+Include a Data Source label: “Powered by Emailmovers”.
+
+Tech notes
+
+Modern, responsive UI (React + Tailwind) with server-side API layer.
+
+Timezone: Europe/London everywhere.
+
+CRON/scheduler for daily job at 08:00 UK time, with manual “Run now” button.
+
+Error states: graceful degradation with “No new movers today” message.
+
+Unit tests for filter logic (inclusion/exclusion and chain detection).
+
+Config via .env (EMAILMOVERS_API_KEY, EMAIL_PROVIDER_KEY, CRON_SCHEDULE).
+
+Acceptance criteria
+
+Able to trigger a fetch from Emailmovers API, apply filters/exclusions, de-duplicate, score, and render a dashboard list.
+
+Sends a daily email at 08:00 UK time with at least one valid lead when available, including CSV attachment and “View all” link.
+
+Demonstrates suppression, opt-out, and chain exclusion working as intended.
+
+All company and contact data in the prototype is obtained via the Emailmovers API (no other data sources).
