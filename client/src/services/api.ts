@@ -1,6 +1,6 @@
 import { SearchFilters, SearchResponse, Company, SuppressionRecord } from '../types';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://moveralert2.onrender.com';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 class ApiService {
   async searchCompanies(filters: SearchFilters): Promise<SearchResponse> {
